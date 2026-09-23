@@ -1,0 +1,283 @@
+name: Build CI images
+
+# These images replace the per-job environment setup in percona/pg_stat_monitor
+# (and, with the psp-* source tags, percona/pg_tde).
+#
+# This workflow is also the freshness check, which is why there is no separate
+# scheduled job re-running the old uncontainerised path:
+#   * postgres-source clones the REL_*_STABLE / PSP_REL_*_STABLE tips and runs
+#     build-postgres.sh, so an upstream compile break fails the build here;
+#   * pgdg/psp run install-postgresql.sh against the live repositories, so a
+#     broken or missing package fails the build here.
+# Because those failures no longer surface as a red PR check, the notify job at
+# the bottom is load-bearing - a silently failing nightly means pg_stat_monitor
+# PRs keep passing against a stale image.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      pgsm_ref:
+        description: 'pg_stat_monitor ref to take .github/scripts from'
+        type: string
+        default: main
+  push:
+    branches: [main]
+    paths:
+      - images/**
+      - .github/workflows/build-images.yml
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # Hardcoded lowercase rather than ${{ github.repository }}: the owner is
+  # spelled "Percona-Lab", and container repository names must be lowercase.
+  # GitHub expressions have no tolower(). The consuming workflows in
+  # pg_stat_monitor spell out the same path, so keep the two in step.
+  NAMESPACE: ghcr.io/percona-lab/pg_github_actions_images
+  PGSM_REF: ${{ inputs.pgsm_ref || 'main' }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Tier 0 - common base. Contains no postgresql*/libpq*, which is what lets
+  # consuming jobs drop `sudo apt purge postgresql* libpq*` entirely.
+  base:
+    name: base (${{ matrix.ubuntu }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ['22.04', '24.04']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: percona/pg_stat_monitor
+          ref: ${{ env.PGSM_REF }}
+          path: pgsm
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/pg-build-base/Dockerfile
+          build-args: UBUNTU_VERSION=${{ matrix.ubuntu }}
+          tags: ${{ env.NAMESPACE }}/pg-build-base:${{ matrix.ubuntu }}
+          push: true
+          cache-from: type=registry,ref=${{ env.NAMESPACE }}/pg-build-base:${{ matrix.ubuntu }}-buildcache
+          cache-to: type=registry,ref=${{ env.NAMESPACE }}/pg-build-base:${{ matrix.ubuntu }}-buildcache,mode=max
+
+  # Tier 1 - INTERNAL build base. No CI job runs on this image; it exists so the
+  # ~28 postgres-source variants below, which build on separate runners with cold
+  # caches, share one copy of the dev dependency set.
+  dev:
+    name: dev (${{ matrix.ubuntu }})
+    needs: base
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: ['22.04', '24.04']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: percona/pg_stat_monitor
+          ref: ${{ env.PGSM_REF }}
+          path: pgsm
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/pg-build-dev/Dockerfile
+          build-args: BASE_IMAGE=${{ env.NAMESPACE }}/pg-build-base:${{ matrix.ubuntu }}
+          tags: ${{ env.NAMESPACE }}/pg-build-dev:internal-${{ matrix.ubuntu }}
+          push: true
+
+  # Tier 2 - the win. Replaces 95-170s of PostgreSQL compilation per job.
+  source:
+    name: source (${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }})
+    needs: dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # pg_stat_monitor `source` + `exec_backend` matrices.
+        flavor: [community]
+        major: [14, 15, 16, 17, 18, 19]
+        cc: [gcc, clang]
+        build_type: [debugoptimized, exec-backend]
+        ubuntu: ['24.04']
+        exclude:
+          # exec_backend is gcc-only.
+          - cc: clang
+            build_type: exec-backend
+        include:
+          # pg_tde builds Percona Server for PostgreSQL from source.
+          - { flavor: psp, major: 16, cc: gcc,   build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 16, cc: clang, build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 17, cc: gcc,   build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 17, cc: clang, build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 18, cc: gcc,   build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 18, cc: clang, build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 19, cc: gcc,   build_type: debugoptimized, ubuntu: '24.04' }
+          - { flavor: psp, major: 19, cc: clang, build_type: debugoptimized, ubuntu: '24.04' }
+          # pg_stat_monitor check.yml (Format).
+          - { flavor: psp, major: 18, cc: gcc,   build_type: debug,    ubuntu: '24.04' }
+          # pg_stat_monitor sanitizers.yml, which pins ubuntu-22.04.
+          - { flavor: psp, major: 18, cc: clang, build_type: sanitize, ubuntu: '22.04' }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: percona/pg_stat_monitor
+          ref: ${{ env.PGSM_REF }}
+          path: pgsm
+      - name: Resolve upstream repository and commit
+        id: upstream
+        run: |
+          if [ "${{ matrix.flavor }}" = psp ]; then
+            repo=https://github.com/percona/postgres.git
+            ref=PSP_REL_${{ matrix.major }}_STABLE
+          else
+            repo=https://github.com/postgres/postgres.git
+            ref=REL_${{ matrix.major }}_STABLE
+          fi
+          sha=$(git ls-remote "$repo" "refs/heads/$ref" | cut -c1-12)
+          # A vanished branch must fail loudly rather than silently build nothing.
+          test -n "$sha" || { echo "::error::$ref not found in $repo"; exit 1; }
+          echo "repo=$repo"  >> "$GITHUB_OUTPUT"
+          echo "ref=$ref"    >> "$GITHUB_OUTPUT"
+          echo "sha=$sha"    >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/postgres-source/Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ env.NAMESPACE }}/pg-build-dev:internal-${{ matrix.ubuntu }}
+            PG_REPO=${{ steps.upstream.outputs.repo }}
+            PG_REF=${{ steps.upstream.outputs.ref }}
+            PG_BUILD_TYPE=${{ matrix.build_type }}
+            CC=${{ matrix.cc }}
+          # Moving tag for PRs to consume; immutable tag for pinning/rollback.
+          tags: |
+            ${{ env.NAMESPACE }}/postgres-source:${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}
+            ${{ env.NAMESPACE }}/postgres-source:${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}-${{ steps.upstream.outputs.sha }}
+          push: true
+
+  # Tier 3a - PGDG packages. gcc-only, so it inherits the slim base.
+  pgdg:
+    name: pgdg (${{ matrix.major }})
+    needs: base
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        major: [14, 15, 16, 17, 18]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: percona/pg_stat_monitor
+          ref: ${{ env.PGSM_REF }}
+          path: pgsm
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/pgdg/Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ env.NAMESPACE }}/pg-build-base:24.04
+            PG_MAJOR=${{ matrix.major }}
+          tags: ${{ env.NAMESPACE }}/pgdg:${{ matrix.major }}
+          push: true
+
+  # Tier 3b - Percona packages.
+  #
+  # amd64 only, and deliberately so. The one consumer that would need arm64 is
+  # pg_stat_monitor's ARM matrix, which is push-only (never runs on a PR), so
+  # containerising it saves nothing on the critical path. Making this image
+  # multi-arch would also force the base image to be multi-arch, i.e. two more
+  # manifest-merge jobs, to save ~35s on four push-only jobs. Not worth it.
+  psp:
+    name: psp (${{ matrix.major }})
+    needs: base
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        major: [14, 15, 16, 17, 18]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: percona/pg_stat_monitor
+          ref: ${{ env.PGSM_REF }}
+          path: pgsm
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/psp/Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ env.NAMESPACE }}/pg-build-base:24.04
+            PG_MAJOR=${{ matrix.major }}
+          tags: ${{ env.NAMESPACE }}/psp:${{ matrix.major }}
+          push: true
+
+  notify:
+    name: Slack notification
+    # Only for unattended runs - a manual dispatch already has someone watching.
+    if: failure() && github.event_name == 'schedule'
+    needs: [base, dev, source, pgdg, psp]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Notify
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "CI image build *failed*. pg_stat_monitor and pg_tde PRs are now running against stale images.\n
+                   <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"

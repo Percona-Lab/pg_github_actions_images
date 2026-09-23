@@ -1,0 +1,11 @@
+#!/bin/sh
+# Drop privileges from root to the unprivileged `ci` user.
+#
+# GitHub Actions container jobs always start as root, but PostgreSQL refuses to
+# run as root, so initdb/pg_ctl/installcheck steps are wrapped in this helper.
+#
+# setpriv preserves the environment (so job-level env such as PGPORT survives),
+# but HOME would otherwise stay /root and leave the TAP suite writing into a
+# directory ci cannot use.
+set -e
+exec setpriv --reuid=ci --regid=ci --init-groups env HOME=/home/ci "$@"

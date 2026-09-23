@@ -1,0 +1,4 @@
+# Populated by build-images.yml (and build-local.sh) with a pg_stat_monitor
+# checkout, because the Dockerfiles run its .github/scripts rather than
+# duplicating the dependency lists.
+/pgsm/
