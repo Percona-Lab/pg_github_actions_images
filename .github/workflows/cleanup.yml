@@ -1,0 +1,71 @@
+name: Clean up CI images
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: true
+
+permissions:
+  packages: write
+
+env:
+  OWNER: percona-lab
+  PACKAGES: pg_github_actions_images/base,pg_github_actions_images/base-dev,pg_github_actions_images/pgdg,pg_github_actions_images/psp,pg_github_actions_images/postgres-source
+
+# Per ref, so cleanups of PRs closed in quick succession do not displace each
+# other: a group holds only one pending run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  closed-pr:
+    name: Delete images of closed PR
+    # A PR from a fork gets a read-only token, and never had images built.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Delete PR images
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          owner: ${{ env.OWNER }}
+          packages: ${{ env.PACKAGES }}
+          delete-tags: '*-PR-${{ github.event.pull_request.number }}'
+
+  stale:
+    name: Delete stale images
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      # main images are rebuilt weekly, so a tag this old is a variant dropped
+      # from the build matrix, an abandoned PR or an old -test- dispatch. A
+      # deleted image takes its untagged platform and attestation manifests
+      # with it.
+      - name: Delete tagged images not rebuilt for 30 days
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          owner: ${{ env.OWNER }}
+          packages: ${{ env.PACKAGES }}
+          delete-tags: '*'
+          older-than: 30 days
+          dry-run: ${{ inputs.dry_run || false }}
+
+      # Images superseded by a rebuild. The action keeps the untagged manifests
+      # a tagged image still references; the grace period covers a build that
+      # has pushed its manifests but not yet the tagged index.
+      - name: Delete untagged images
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
+        with:
+          owner: ${{ env.OWNER }}
+          packages: ${{ env.PACKAGES }}
+          delete-untagged: true
+          older-than: 1 day
+          dry-run: ${{ inputs.dry_run || false }}
