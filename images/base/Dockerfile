@@ -15,6 +15,7 @@ RUN apt-get update \
       gnupg \
       libipc-run-perl \
       libjson-perl \
+      libjson-xs-perl \
       libkrb5-dev \
       libtext-trim-perl \
       locales \

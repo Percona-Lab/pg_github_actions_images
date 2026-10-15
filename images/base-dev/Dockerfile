@@ -5,6 +5,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       bison \
       clang \
+      cmake \
       docbook-xml \
       docbook-xsl \
       flex \
@@ -23,6 +24,7 @@ RUN apt-get update \
       libxml2-utils \
       libxslt1-dev \
       libzstd-dev \
+      llvm \
       lz4 \
       mawk \
       meson \
