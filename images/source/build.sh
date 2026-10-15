@@ -8,6 +8,16 @@ FLAVOR=${1:-}
 PG_MAJOR=${2:-}
 BUILD_TYPE=${3:-}
 
+case "${CC:-gcc}" in
+    gcc) export CXX=g++ ;;
+    clang) export CXX=clang++ ;;
+    *)
+        echo "Unknown compiler: $CC" >&2
+        echo "Use one of: gcc, clang" >&2
+        exit 1
+        ;;
+esac
+
 if ! [[ "$PG_MAJOR" =~ ^[0-9]+$ ]]; then
     echo "Invalid major version: $PG_MAJOR" >&2
     exit 1
