@@ -1,0 +1,48 @@
+name: Merge images
+description: >-
+  Publishes the tags of one build stage, each as a multi-arch image made of
+  the per-architecture digests that build-image pushed.
+
+inputs:
+  stage:
+    description: Build stage to publish
+    required: true
+  token:
+    description: Token with packages:write
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download digests
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        pattern: digest-${{ inputs.stage }}-*
+        path: ${{ runner.temp }}/digest
+        merge-multiple: true
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}
+
+    # Each digest file holds "<image>:<tag> <digest>". A tag whose build failed
+    # on one architecture is published with the others only.
+    - name: Publish tags
+      shell: bash
+      run: |
+        set -euo pipefail
+        cat "$RUNNER_TEMP"/digest/* | sort | awk '
+          { refs[$1] = refs[$1] " " substr($1, 1, index($1, ":") - 1) "@" $2 }
+          END { for (r in refs) print r refs[r] }' |
+        while read -r ref sources; do
+          echo "::group::$ref"
+          docker buildx imagetools create -t "$ref" $sources
+          docker buildx imagetools inspect "$ref"
+          echo "::endgroup::"
+        done

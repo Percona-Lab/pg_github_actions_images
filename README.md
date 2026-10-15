@@ -15,9 +15,25 @@ Published to `ghcr.io/percona-lab/pg_github_actions_images/<name>:<tag>`.
 | `base-dev` | `<ubuntu>` (22.04, 24.04) | Base layer for source builds |
 
 `flavor` is `pgdg` (`postgres/postgres@REL_<major>_STABLE`) or `psp`
-(`percona/postgres@PSP_REL_<major>_STABLE`).
+(`percona/postgres@PSP_REL_<major>_STABLE`). `build_type` is
+`debugoptimized`, `exec-backend` (gcc only) or `sanitize` (only
+`psp-18-clang-sanitize-ubuntu22.04`).
+
+All images are built for amd64. The following are also built for arm64, under
+the same tags, for the ARM jobs (`runs-on: ubuntu-24.04-arm`):
+
+- `base` and `base-dev`: `24.04`
+- `postgres-source`: `psp-<16–19>-<gcc|clang>-debugoptimized-ubuntu24.04`
+- `psp`: `<17|18>-ubuntu24.04`
 
 ## Usage
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-gcc-debugoptimized-ubuntu24.04
+```
 
 Set `container:` on the job. Note three things:
 

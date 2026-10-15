@@ -34,75 +34,95 @@ concurrency:
 
 jobs:
   base:
-    name: Base (${{ matrix.ubuntu }})
+    name: Base (${{ matrix.ubuntu }}, ${{ matrix.arch }})
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         ubuntu: ['22.04', '24.04']
+        arch: [amd64, arm64]
+        exclude:
+          - { ubuntu: '22.04', arch: arm64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Build base
+        uses: ./.github/actions/build-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push base
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
+          stage: base
+          image: base
+          tag: ${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
           file: images/base/Dockerfile
           build-args: UBUNTU_VERSION=${{ matrix.ubuntu }}
-          tags: ${{ env.NAMESPACE }}/base:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  dev:
-    name: Dev (${{ matrix.ubuntu }})
+  base-merge:
+    name: Publish base
     needs: base
     if: ${{ !cancelled() && needs.base.result != 'skipped' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish base
+        uses: ./.github/actions/merge-images
+        with:
+          stage: base
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  dev:
+    name: Dev (${{ matrix.ubuntu }}, ${{ matrix.arch }})
+    needs: base-merge
+    if: ${{ !cancelled() && needs.base-merge.result == 'success' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         ubuntu: ['22.04', '24.04']
+        arch: [amd64, arm64]
+        exclude:
+          - { ubuntu: '22.04', arch: arm64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Build base-dev
+        uses: ./.github/actions/build-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push base-dev
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
+          stage: dev
+          image: base-dev
+          tag: ${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
           file: images/base-dev/Dockerfile
           build-args: BASE_IMAGE=${{ env.NAMESPACE }}/base:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          tags: ${{ env.NAMESPACE }}/base-dev:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-  source:
-    name: Source (${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}-ubuntu${{ matrix.ubuntu }})
+  dev-merge:
+    name: Publish base-dev
     needs: dev
     if: ${{ !cancelled() && needs.dev.result != 'skipped' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish base-dev
+        uses: ./.github/actions/merge-images
+        with:
+          stage: dev
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  source:
+    name: Source (${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}-ubuntu${{ matrix.ubuntu }}, ${{ matrix.arch }})
+    needs: dev-merge
+    if: ${{ !cancelled() && needs.dev-merge.result == 'success' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -112,33 +132,29 @@ jobs:
         cc: [gcc, clang]
         build_type: [debugoptimized, exec-backend]
         ubuntu: ['24.04']
+        arch: [amd64, arm64]
         exclude:
           # exec-backend is gcc-only.
           - { build_type: exec-backend, cc: clang }
           # Percona Server is only tested from 16 on.
           - { flavor: psp, major: 14 }
           - { flavor: psp, major: 15 }
+          # Only pg_tde's ARM matrix uses source builds on arm64.
+          - { arch: arm64, flavor: pgdg }
+          - { arch: arm64, build_type: exec-backend }
         include:
           # TODO: pg_stat_monitor and pg_tde sanitizers.yml, which pin ubuntu-22.04.
-          - { flavor: psp, major: 18, cc: clang, build_type: sanitize, ubuntu: '22.04' }
+          - { flavor: psp, major: 18, cc: clang, build_type: sanitize, ubuntu: '22.04', arch: amd64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Build postgres-source
+        uses: ./.github/actions/build-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push postgres-source
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
+          stage: final
+          image: postgres-source
+          tag: ${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
           file: images/source/Dockerfile
           build-args: |
             BASE_IMAGE=${{ env.NAMESPACE }}/base-dev:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
@@ -146,85 +162,89 @@ jobs:
             PG_MAJOR=${{ matrix.major }}
             PG_BUILD_TYPE=${{ matrix.build_type }}
             CC=${{ matrix.cc }}
-          tags: ${{ env.NAMESPACE }}/postgres-source:${{ matrix.flavor }}-${{ matrix.major }}-${{ matrix.cc }}-${{ matrix.build_type }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   pgdg:
-    name: PGDG (${{ matrix.major }}-ubuntu${{ matrix.ubuntu }})
-    needs: base
-    if: ${{ !cancelled() && needs.base.result != 'skipped' }}
-    runs-on: ubuntu-24.04
+    name: PGDG (${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}, ${{ matrix.arch }})
+    needs: base-merge
+    if: ${{ !cancelled() && needs.base-merge.result == 'success' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         major: [14, 15, 16, 17, 18]
         ubuntu: ['24.04']
+        arch: [amd64]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Build pgdg
+        uses: ./.github/actions/build-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push pgdg
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
+          stage: final
+          image: pgdg
+          tag: ${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
           file: images/pgdg/Dockerfile
           build-args: |
             BASE_IMAGE=${{ env.NAMESPACE }}/base:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
             PG_MAJOR=${{ matrix.major }}
-          tags: ${{ env.NAMESPACE }}/pgdg:${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   psp:
-    name: PSP (${{ matrix.major }}-ubuntu${{ matrix.ubuntu }})
-    needs: base
-    if: ${{ !cancelled() && needs.base.result != 'skipped' }}
-    runs-on: ubuntu-24.04
+    name: PSP (${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}, ${{ matrix.arch }})
+    needs: base-merge
+    if: ${{ !cancelled() && needs.base-merge.result == 'success' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         major: [14, 15, 16, 17, 18]
         ubuntu: ['24.04']
+        arch: [amd64, arm64]
+        exclude:
+          # Only pg_stat_monitor's ARM matrix uses packages on arm64.
+          - { arch: arm64, major: 14 }
+          - { arch: arm64, major: 15 }
+          - { arch: arm64, major: 16 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      - name: Build psp
+        uses: ./.github/actions/build-image
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push psp
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
+          stage: final
+          image: psp
+          tag: ${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
           file: images/psp/Dockerfile
           build-args: |
             BASE_IMAGE=${{ env.NAMESPACE }}/base:${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
             PG_MAJOR=${{ matrix.major }}
-          tags: ${{ env.NAMESPACE }}/psp:${{ matrix.major }}-ubuntu${{ matrix.ubuntu }}${{ env.TAG_SUFFIX }}
-          push: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  merge:
+    name: Publish postgres-source, pgdg and psp
+    needs: [source, pgdg, psp]
+    if: ${{ !cancelled() && (needs.source.result != 'skipped' || needs.pgdg.result != 'skipped' || needs.psp.result != 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish postgres-source, pgdg and psp
+        uses: ./.github/actions/merge-images
+        with:
+          stage: final
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   notify:
     name: Slack notification
     if: (failure() || cancelled()) && github.event_name == 'schedule'
-    needs: [base, dev, source, pgdg, psp]
+    needs: [base, base-merge, dev, dev-merge, source, pgdg, psp, merge]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
