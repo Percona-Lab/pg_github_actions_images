@@ -61,7 +61,7 @@ case "$BUILD_TYPE" in
         ARGS+=(--enable-cassert)
         ;;
     sanitize)
-        export CFLAGS="-O1 -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
+        export CFLAGS="-O0 -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -fno-inline-functions"
         INJECTION_POINTS=false
         ;;
     exec-backend)
