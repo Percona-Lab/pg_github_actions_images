@@ -28,6 +28,8 @@ RUN apt-get update \
       wget \
  && rm -rf /var/lib/apt/lists/*
 
+RUN locale-gen en_US.UTF-8
+
 # Create user for CI jobs
 RUN useradd --create-home --uid 1001 --shell /bin/bash ci \
  && echo 'ci ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ci \
