@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Start symbolizer in its own session to avoid being killed along with the PostgreSQL backend.
+exec setsid /usr/bin/llvm-symbolizer "$@"
