@@ -35,7 +35,7 @@ jobs:
     container: ghcr.io/percona-lab/pg_github_actions_images/postgres-source:psp-18-gcc-debugoptimized-ubuntu24.04
 ```
 
-Set `container:` on the job. Note three things:
+Set `container:` on the job. Note four things:
 
 1. **Steps run as the unprivileged `ci` user, not root**, because PostgreSQL
    refuses to run as root. `ci` has UID 1001, the same as the `runner` user on
@@ -52,3 +52,7 @@ Set `container:` on the job. Note three things:
 3. **The `source` tree keeps its object files**, so `make
    installcheck-world` (pg_tde's "PSP with TDE" job) or an in-tree contrib build
    can run in `/opt/postgres` without recompiling PostgreSQL first.
+
+4. **Jobs that start PostgreSQL need `options: --init`.** The job container's
+   main process does not reap orphaned processes, so a postmaster that a test
+   kills stays a zombie, its PID stays taken, and restarting the node fails.
