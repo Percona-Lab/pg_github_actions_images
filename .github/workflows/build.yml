@@ -41,10 +41,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: ['22.04', '24.04']
+        ubuntu: ['24.04']
         arch: [amd64, arm64]
-        exclude:
-          - { ubuntu: '22.04', arch: arm64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,10 +82,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ubuntu: ['22.04', '24.04']
+        ubuntu: ['24.04']
         arch: [amd64, arm64]
-        exclude:
-          - { ubuntu: '22.04', arch: arm64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -143,8 +139,8 @@ jobs:
           - { arch: arm64, flavor: pgdg }
           - { arch: arm64, build_type: exec-backend }
         include:
-          # TODO: pg_stat_monitor and pg_tde sanitizers.yml, which pin ubuntu-22.04.
-          - { flavor: psp, major: 18, cc: clang, build_type: sanitize, ubuntu: '22.04', arch: amd64 }
+          # pg_stat_monitor and pg_tde sanitizers.yml.
+          - { flavor: psp, major: 18, cc: clang, build_type: sanitize, ubuntu: '24.04', arch: amd64 }
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

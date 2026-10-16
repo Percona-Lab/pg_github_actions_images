@@ -11,13 +11,13 @@ Published to `ghcr.io/percona-lab/pg_github_actions_images/<name>:<tag>`.
 | `postgres-source` | `<flavor>-<major>-<compiler>-<build_type>-ubuntu<ubuntu>` | Source build of PostgreSQL |
 | `psp` | `<major>-ubuntu<ubuntu>` (14–18) | Percona Server for PostgreSQL installed from packages |
 | `pgdg` | `<major>-ubuntu<ubuntu>` (14–18) | PostgreSQL installed from PGDG packages |
-| `base` | `<ubuntu>` (22.04, 24.04) | Base layer |
-| `base-dev` | `<ubuntu>` (22.04, 24.04) | Base layer for source builds |
+| `base` | `<ubuntu>` (24.04) | Base layer |
+| `base-dev` | `<ubuntu>` (24.04) | Base layer for source builds |
 
 `flavor` is `pgdg` (`postgres/postgres@REL_<major>_STABLE`) or `psp`
 (`percona/postgres@PSP_REL_<major>_STABLE`). `build_type` is
 `debugoptimized`, `exec-backend` (gcc only) or `sanitize` (only
-`psp-18-clang-sanitize-ubuntu22.04`).
+`psp-18-clang-sanitize-ubuntu24.04`).
 
 All images are built for amd64. The following are also built for arm64, under
 the same tags, for the ARM jobs (`runs-on: ubuntu-24.04-arm`):

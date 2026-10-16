@@ -10,6 +10,7 @@ RUN apt-get update \
       docbook-xsl \
       flex \
       lcov \
+      libclang-rt-dev \
       libcurl4-openssl-dev \
       libicu-dev \
       libldap2-dev \
