@@ -5,13 +5,16 @@ ARG PG_FLAVOR
 ARG PG_MAJOR
 ARG PG_BUILD_TYPE
 ARG CC=gcc
+ARG CXX=g++
 # Let target CI find source and installation directories
 ENV PG_SOURCE_DIR=/opt/postgres
 ENV PG_INSTALL_DIR=/usr/local/pgsql
+ENV CC=${CC}
+ENV CXX=${CXX}
 
 COPY images/source/build.sh /opt/build.sh
 
-RUN CC="${CC}" /opt/build.sh "${PG_FLAVOR}" "${PG_MAJOR}" "${PG_BUILD_TYPE}" \
+RUN /opt/build.sh "${PG_FLAVOR}" "${PG_MAJOR}" "${PG_BUILD_TYPE}" \
  && chown -R ci:ci "${PG_SOURCE_DIR}" "${PG_INSTALL_DIR}"
 
 ENV PATH=${PG_INSTALL_DIR}/bin:$PATH

@@ -158,6 +158,7 @@ jobs:
             PG_MAJOR=${{ matrix.major }}
             PG_BUILD_TYPE=${{ matrix.build_type }}
             CC=${{ matrix.cc }}
+            CXX=${{ matrix.cc == 'clang' && 'clang++' || 'g++' }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
   pgdg:
