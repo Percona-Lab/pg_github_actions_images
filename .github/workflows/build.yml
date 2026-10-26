@@ -8,10 +8,12 @@ on:
     branches: [main]
     paths:
       - images/**
+      - .github/actions/**
       - .github/workflows/build.yml
   pull_request:
     paths:
       - images/**
+      - .github/actions/**
       - .github/workflows/build.yml
 
 permissions:
