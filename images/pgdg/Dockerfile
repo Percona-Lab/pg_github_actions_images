@@ -15,7 +15,8 @@ RUN install -d /usr/share/postgresql-common/pgdg /etc/postgresql-common/createcl
       "postgresql-${PG_MAJOR}" \
       $([ "${PG_MAJOR}" -ge 18 ] && echo "postgresql-${PG_MAJOR}-jit") \
       "postgresql-server-dev-${PG_MAJOR}" \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && chown -R ci:ci "/usr/lib/postgresql/${PG_MAJOR}/lib" "/usr/share/postgresql/${PG_MAJOR}/extension"
 
 # Jobs run as the unprivileged user
 USER ci

@@ -27,7 +27,8 @@ RUN install -d /etc/postgresql-common/createcluster.d \
       percona-postgresql-postgis-scripts \
       percona-postgresql-postgis \
       percona-postgis \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && chown -R ci:ci "/usr/lib/postgresql/${PG_MAJOR}/lib" "/usr/share/postgresql/${PG_MAJOR}/extension"
 
 # Jobs run as the unprivileged user
 USER ci
