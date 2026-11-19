@@ -17,8 +17,6 @@ RUN install -d /etc/postgresql-common/createcluster.d \
       $([ "${PG_MAJOR}" -ge 18 ] && echo "percona-postgresql-${PG_MAJOR}-jit") \
       percona-postgresql-contrib \
       percona-postgresql-server-dev-all \
-      percona-pgpool2 \
-      libpgpool2 \
       "percona-postgresql-${PG_MAJOR}-pgaudit" \
       "percona-postgresql-${PG_MAJOR}-repack" \
       "percona-pgaudit${PG_MAJOR}-set-user" \
