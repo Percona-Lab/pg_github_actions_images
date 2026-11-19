@@ -172,7 +172,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        major: [14, 15, 16, 17, 18]
+        major: [14, 15, 16, 17, 18, 19]
         ubuntu: ['24.04']
         arch: [amd64]
     steps:
@@ -200,7 +200,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        major: [14, 15, 16, 17, 18]
+        major: [14, 15, 16, 17, 18, 19]
         ubuntu: ['24.04']
         arch: [amd64, arm64]
         exclude:

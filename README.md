@@ -9,8 +9,8 @@ Published to `ghcr.io/percona-lab/pg_github_actions_images/<name>:<tag>`.
 | Image | Tags | Description |
 |---|---|---|
 | `postgres-source` | `<flavor>-<major>-<compiler>-<build_type>-ubuntu<ubuntu>` | Source build of PostgreSQL |
-| `psp` | `<major>-ubuntu<ubuntu>` (14–18) | Percona Server for PostgreSQL installed from packages |
-| `pgdg` | `<major>-ubuntu<ubuntu>` (14–18) | PostgreSQL installed from PGDG packages |
+| `psp` | `<major>-ubuntu<ubuntu>` (14–19) | Percona Server for PostgreSQL installed from packages |
+| `pgdg` | `<major>-ubuntu<ubuntu>` (14–19) | PostgreSQL installed from PGDG packages |
 | `base` | `<ubuntu>` (24.04) | Base layer |
 | `base-dev` | `<ubuntu>` (24.04) | Base layer for source builds |
 
@@ -24,7 +24,7 @@ the same tags, for the ARM jobs (`runs-on: ubuntu-24.04-arm`):
 
 - `base` and `base-dev`: `24.04`
 - `postgres-source`: `psp-<16–19>-<gcc|clang>-debugoptimized-ubuntu24.04`
-- `psp`: `<17|18>-ubuntu24.04`
+- `psp`: `<17|18|19>-ubuntu24.04`
 
 ## Usage
 
