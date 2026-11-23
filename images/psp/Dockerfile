@@ -21,9 +21,6 @@ RUN install -d /etc/postgresql-common/createcluster.d \
       "percona-pgaudit${PG_MAJOR}-set-user" \
       "percona-postgresql-${PG_MAJOR}-postgis-3" \
       "percona-postgresql-${PG_MAJOR}-postgis-3-scripts" \
-      percona-postgresql-postgis-scripts \
-      percona-postgresql-postgis \
-      percona-postgis \
  && rm -rf /var/lib/apt/lists/* \
  && chown -R ci:ci "/usr/lib/postgresql/${PG_MAJOR}/lib" "/usr/share/postgresql/${PG_MAJOR}/extension"
 
