@@ -15,7 +15,6 @@ RUN install -d /etc/postgresql-common/createcluster.d \
  && apt-get install -y --no-install-recommends \
       "percona-postgresql-${PG_MAJOR}" \
       $([ "${PG_MAJOR}" -ge 18 ] && echo "percona-postgresql-${PG_MAJOR}-jit") \
-      percona-postgresql-contrib \
       percona-postgresql-server-dev-all \
       "percona-postgresql-${PG_MAJOR}-pgaudit" \
       "percona-postgresql-${PG_MAJOR}-repack" \
