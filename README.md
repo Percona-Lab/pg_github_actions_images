@@ -6,13 +6,13 @@ Prebuilt CI images for Percona's PostgreSQL Team projects
 
 Published to `ghcr.io/percona-lab/pg_github_actions_images/<name>:<tag>`.
 
-| Image | Tags | Description |
-|---|---|---|
-| `postgres-source` | `<flavor>-<major>-<compiler>-<build_type>-ubuntu<ubuntu>` | Source build of PostgreSQL |
-| `psp` | `<major>-ubuntu<ubuntu>` (14–19) | Percona Server for PostgreSQL installed from packages |
-| `pgdg` | `<major>-ubuntu<ubuntu>` (14–19) | PostgreSQL installed from PGDG packages |
-| `base` | `<ubuntu>` (24.04) | Base layer |
-| `base-dev` | `<ubuntu>` (24.04) | Base layer for source builds |
+| Image             | Tags                                                      | Description                                           |
+|-------------------|-----------------------------------------------------------|-------------------------------------------------------|
+| `postgres-source` | `<flavor>-<major>-<compiler>-<build_type>-ubuntu<ubuntu>` | Source build of PostgreSQL                            |
+| `psp`             | `<major>-ubuntu<ubuntu>` (14–19)                          | Percona Server for PostgreSQL installed from packages |
+| `pgdg`            | `<major>-ubuntu<ubuntu>` (14–19)                          | PostgreSQL installed from PGDG packages               |
+| `base`            | `<ubuntu>` (24.04)                                        | Base layer                                            |
+| `base-dev`        | `<ubuntu>` (24.04)                                        | Base layer for source builds                          |
 
 `flavor` is `pgdg` (`postgres/postgres@REL_<major>_STABLE`) or `psp`
 (`percona/postgres@PSP_REL_<major>_STABLE`). `build_type` is
