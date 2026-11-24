@@ -39,8 +39,8 @@ ARGS=(
     --with-libxml
     --with-libxslt
     --with-lz4
-    --with-openssl
     --with-pam
+    --with-ssl=openssl
     --with-systemd
     --with-uuid=e2fs
 )
