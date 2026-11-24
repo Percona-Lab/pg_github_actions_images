@@ -34,15 +34,15 @@ ARGS=(
     --prefix="$PG_INSTALL_DIR"
     --enable-debug
     --enable-tap-tests
-    --with-openssl
+    --with-gssapi
+    --with-ldap
     --with-libxml
     --with-libxslt
     --with-lz4
-    --with-uuid=e2fs
-    --with-gssapi
-    --with-ldap
+    --with-openssl
     --with-pam
     --with-systemd
+    --with-uuid=e2fs
 )
 INJECTION_POINTS=true
 
