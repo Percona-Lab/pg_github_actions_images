@@ -22,6 +22,7 @@ RUN install -d /etc/postgresql-common/createcluster.d \
       "percona-pgaudit${PG_MAJOR}-set-user" \
       "percona-postgresql-${PG_MAJOR}-postgis-3" \
       "percona-postgresql-${PG_MAJOR}-postgis-3-scripts" \
+      $([ "${PG_MAJOR}" -ge 19 ] && echo "percona-postgresql-${PG_MAJOR}-address-standardizer percona-postgresql-${PG_MAJOR}-postgis-tiger-geocoder") \
  && rm -rf /var/lib/apt/lists/* \
  && chown -R ci:ci "/usr/lib/postgresql/${PG_MAJOR}/lib" "/usr/share/postgresql/${PG_MAJOR}/extension"
 
